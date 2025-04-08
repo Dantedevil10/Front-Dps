@@ -21,6 +21,10 @@ Este projeto permite o gerenciamento e visualização em tempo real da localiza�
 
 ---
 
+## Screens 
+
+<img src="https://github.com/user-attachments/assets/0dd5e056-46fb-47bc-a904-b75d08759455" Width="640px" alt="photo">
+
 ## ▶️ Como Rodar o Projeto
 
 ### 🔧 Backend
