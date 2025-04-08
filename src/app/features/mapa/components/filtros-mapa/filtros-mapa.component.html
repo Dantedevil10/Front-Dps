@@ -1,0 +1,14 @@
+<div class="filtros-container">
+  <label>Status:</label>
+  <select [(ngModel)]="statusSelecionado">
+    <option value="todos">Todos</option>
+    <option value="ativo">Ativo</option>
+    <option value="inativo">Inativo</option>
+  </select>
+
+  <label>Raio (km):</label>
+  <input type="number" [(ngModel)]="raioKm" min="1" max="50" />
+
+  <button (click)="aplicarFiltros()">Aplicar</button>
+</div>
+  

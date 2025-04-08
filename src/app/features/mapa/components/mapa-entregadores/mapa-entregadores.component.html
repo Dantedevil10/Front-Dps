@@ -1,0 +1,34 @@
+<div class="mapa-wrapper">
+  <!-- Painel lateral -->
+  <div class="painel-lateral">
+    <div class="painel-header">
+      <h3>📦 Entregadores</h3>
+      <button id="verTodos" (click)="verTodos()">Ver Todos</button>
+    </div>
+
+    <ul class="lista-entregadores">
+      <li
+        *ngFor="let entregador of entregadoresVisiveis"
+        (click)="focarEntregador(entregador)"
+        [class.ativo]="entregador.status === 'ativo'"
+        [class.selecionado]="entregador.id === entregadorSelecionadoId"
+      >
+        <div class="entregador-info">
+          <span class="nome">{{ entregador.nome }}</span>
+          <span
+            class="status"
+            [class.status-ativo]="entregador.status === 'ativo'"
+            [class.status-inativo]="entregador.status === 'inativo'"
+          >
+            {{ entregador.status }}
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Mapa -->
+  <div id="mapa" class="mapa"></div>
+</div>
+
+<app-filtros-mapa (filtrosAlterados)="filtrarEntregadores($event)"></app-filtros-mapa>
