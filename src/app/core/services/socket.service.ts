@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
-import { Observable } from 'rxjs';
+import { Observable, fromEvent  } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -19,6 +19,11 @@ export class SocketService {
       });
     });
   }
+
+  escutarStatusAtualizado(): Observable<any> {
+    return fromEvent(this.socket, 'status-entregador-atualizado');
+  }
+  
 
   desconectar() {
     this.socket.disconnect();

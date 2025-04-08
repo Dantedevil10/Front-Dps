@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import * as L from 'leaflet';
 import { SocketService } from '../../../../core/services/socket.service';
-import { EntregadorService } from '../../../../core/services/entregador.service'; 
+import { EntregadorService } from '../../../../core/services/entregador.service';
 
 type Entregador = {
   id: string;
@@ -16,46 +16,37 @@ type Entregador = {
   templateUrl: './mapa-entregadores.component.html',
   styleUrls: ['./mapa-entregadores.component.sass']
 })
-
 export class MapaEntregadoresComponent implements OnInit {
-
-  private iconeInicio = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3177/3177361.png', // ícone de bandeira ou casa
-    iconSize: [28, 28],
-    iconAnchor: [14, 28]
-  });
-  
-  private iconeParada = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252025.png', // ponto intermediário
-    iconSize: [24, 24],
-    iconAnchor: [12, 24]
-  });
-  
-  private iconeFim = L.icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/1912/1912207.png', // ícone de chegada, ex: bandeira de chegada
-    iconSize: [40, 40],
-    iconAnchor: [14, 28]
-  });
-  
+  private icones = {
+    inicio: L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/3177/3177361.png',
+      iconSize: [28, 28],
+      iconAnchor: [14, 28]
+    }),
+    parada: L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/252/252025.png',
+      iconSize: [24, 24],
+      iconAnchor: [12, 24]
+    }),
+    fim: L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/1912/1912207.png',
+      iconSize: [40, 40],
+      iconAnchor: [14, 28]
+    }),
+    entregador: L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/16422/16422519.png',
+      iconSize: [32, 32],
+      iconAnchor: [16, 32]
+    })
+  };
 
   entregadoresVisiveis: Entregador[] = [];
-
   entregadorSelecionadoId: string | null = null;
-
-  private entregadoresMock: Entregador[] = [];
-
+  private entregadores: Entregador[] = [];
   private mapa!: L.Map;
-
-  // private marcadorEntregador!: L.Marker;
-  // private trechoPercorrido: L.Polyline | null = null;
-
-  // private pontosPercorridos: L.LatLng[] = [];
-
   private trechosPercorridos: { [id: string]: L.Polyline } = {};
-  private pontosPercorridosMap: { [id: string]: L.LatLng[] } = {};
-
-  filtrosAtuais: { status: string; raioKm: number } = { status: 'todos', raioKm: 50 };
-
+  private pontosPercorridos: { [id: string]: L.LatLng[] } = {};
+  filtrosAtuais = { status: 'todos', raioKm: 50 };
 
   constructor(
     private socketService: SocketService,
@@ -65,188 +56,142 @@ export class MapaEntregadoresComponent implements OnInit {
   ngOnInit(): void {
     this.inicializarMapa();
     this.carregarEntregadores();
-    
-    this.socketService.escutarLocalizacaoAtualizada().subscribe((dados: any) => {
+    this.socketService.escutarLocalizacaoAtualizada().subscribe(dados => {
       this.atualizarOuAdicionarEntregador(dados);
     });
+    this.socketService.escutarStatusAtualizado().subscribe((dados: any) => {
+      this.atualizarStatusEntregador(dados);
+    });
+    
   }
 
-  inicializarMapa(): void {
-    this.mapa = L.map('mapa').setView([-23.56, -46.63], 13); // centro inicial
+  atualizarStatusEntregador(dados: { id: string; status: 'ativo' | 'inativo' }): void {
+    const entregador = this.entregadores.find(e => e.id === dados.id);
+    if (entregador) {
+      entregador.status = dados.status;
+      this.filtrarEntregadores(this.filtrosAtuais);
+    }
+  }
+  
 
+  inicializarMapa(): void {
+    this.mapa = L.map('mapa').setView([-23.56, -46.63], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(this.mapa);
-    
-    // Render inicial sem filtro (todos)
-    this.filtrarEntregadores({ status: 'todos', raioKm: 50 });
+    this.filtrarEntregadores(this.filtrosAtuais);
   }
 
-  //Filtro Opcional com base em status e Raio(Km)
-  filtrarEntregadores(filtros: { status: string; raioKm: number }) {
-    console.log('Filtros recebidos:', filtros);
-  
-    this.filtrosAtuais = filtros; // <-- salvar os filtros
-
-    const pontoCentral = L.latLng(-23.56, -46.63);
-    const raioEmMetros = filtros.raioKm * 1000;
-  
-    const filtrados = this.entregadoresMock.filter(ent => {
-      const dentroRaio = ent.localizacao.distanceTo(pontoCentral) <= raioEmMetros;
-      const statusOk = filtros.status === 'todos' || ent.status === filtros.status;
-      return dentroRaio && statusOk;
+  filtrarEntregadores(filtros: { status: string; raioKm: number }): void {
+    this.filtrosAtuais = filtros;
+    const centro = L.latLng(-23.56, -46.63);
+    const raioMetros = filtros.raioKm * 1000;
+    const filtrados = this.entregadores.filter(ent => {
+      const distanciaValida = ent.localizacao.distanceTo(centro) <= raioMetros;
+      const statusValido = filtros.status === 'todos' || ent.status === filtros.status;
+      return distanciaValida && statusValido;
     });
-  
+    // Remove markers dos entregadores não filtrados
     this.entregadoresVisiveis.forEach(e => {
       if (e.marcador) this.mapa.removeLayer(e.marcador);
     });
-  
     this.entregadoresVisiveis = filtrados;
-  
+    // Adiciona markers dos entregadores filtrados
     this.entregadoresVisiveis.forEach(ent => {
       if (ent.marcador) ent.marcador.addTo(this.mapa);
     });
-    
   }
 
-  focarEntregador(entregador: Entregador) {
+  focarEntregador(entregador: Entregador): void {
     this.entregadorSelecionadoId = entregador.id;
-
-    this.mapa.flyTo(entregador.localizacao, 16, {
-      animate: true,
-      duration: 1
-    });
-  
+    this.mapa.flyTo(entregador.localizacao, 16, { animate: true, duration: 1 });
     if (entregador.marcador) {
       entregador.marcador.openPopup();
     }
   }
-  verTodos() {
+
+  verTodos(): void {
     this.entregadorSelecionadoId = null;
     this.mapa.setView([-23.56, -46.63], 13);
   }
-  
-  atualizarOuAdicionarEntregador(dados: any) {
-    const entregador = this.entregadoresMock.find(e => e.id === dados.id);
-    const novaPos = L.latLng(dados.lat, dados.lng);
 
-    if (entregador) {
-      entregador.localizacao = novaPos;
+  atualizarOuAdicionarEntregador(dados: any): void {
+    const posicao = L.latLng(dados.lat, dados.lng);
+    const index = this.entregadores.findIndex(e => e.id === dados.id);
+    
+    if (index > -1) {
+      const entregador = this.entregadores[index];
+      entregador.localizacao = posicao;
       entregador.status = dados.status;
-
       if (entregador.marcador) {
-        entregador.marcador.setLatLng(novaPos);
+        entregador.marcador.setLatLng(posicao);
       }
-
-      // Adiciona novo ponto e atualiza a linha azul
-      this.pontosPercorridosMap[dados.id].push(novaPos);
-      const linha = this.trechosPercorridos[dados.id];
-      linha.setLatLngs(this.pontosPercorridosMap[dados.id]);
-
+      this.pontosPercorridos[dados.id].push(posicao);
+      this.trechosPercorridos[dados.id].setLatLngs(this.pontosPercorridos[dados.id]);
     } else {
-      this.entregadorService.buscar(dados.id).subscribe((entregadorDetalhado: any) => {
+      this.entregadorService.buscar(dados.id).subscribe(entregadorDetalhado => {
         this.desenharRotaCompleta(entregadorDetalhado);
-      
-        const marker = L.marker(novaPos, {
-          icon: L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/16422/16422519.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32]
-          })
-        }).addTo(this.mapa).bindPopup(dados.nome);
-      
+        const marker = L.marker(posicao, { icon: this.icones.entregador })
+                        .addTo(this.mapa)
+                        .bindPopup(dados.nome);
         const novoEntregador: Entregador = {
           id: dados.id,
           nome: dados.nome,
           status: dados.status,
-          localizacao: novaPos,
+          localizacao: posicao,
           marcador: marker
         };
-      
-        this.entregadoresMock.push(novoEntregador);
-        this.pontosPercorridosMap[dados.id] = [novaPos];
-        this.trechosPercorridos[dados.id] = L.polyline([novaPos], {
-          color: 'blue',
-          weight: 5
-        }).addTo(this.mapa);
-      
-        this.entregadoresVisiveis = [...this.entregadoresMock];
+        this.entregadores.push(novoEntregador);
+        this.pontosPercorridos[dados.id] = [posicao];
+        this.trechosPercorridos[dados.id] = L.polyline([posicao], { color: 'blue', weight: 5 }).addTo(this.mapa);
+        this.entregadoresVisiveis = [...this.entregadores];
       });
     }
-
-    // this.entregadoresVisiveis = [...this.entregadoresMock];
     this.filtrarEntregadores(this.filtrosAtuais);
   }
 
   carregarEntregadores(): void {
-    this.entregadorService.listar().subscribe(entregadores => {
-      entregadores.forEach(e => {
-        
+    this.entregadorService.listar().subscribe(entregadoresList => {
+      entregadoresList.forEach(e => {
         this.desenharRotaCompleta(e);
-    
         const localizacao = L.latLng(e.localizacaoAtual.latitude, e.localizacaoAtual.longitude);
-    
-        const marker = L.marker(localizacao, {
-          icon: L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/16422/16422519.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32]
-          })
-        }).addTo(this.mapa).bindPopup(e.nome);
-    
-        this.entregadoresMock.push({
+        const marker = L.marker(localizacao, { icon: this.icones.entregador })
+                        .addTo(this.mapa)
+                        .bindPopup(e.nome);
+        const entregador: Entregador = {
           id: e.id,
           nome: e.nome,
           status: e.status,
           localizacao,
           marcador: marker
-        });
-    
-        // Inicializa o trajeto percorrido para esse entregador
-        this.pontosPercorridosMap[e.id] = [localizacao];
-        this.trechosPercorridos[e.id] = L.polyline([localizacao], {
-          color: 'blue',
-          weight: 5
-        }).addTo(this.mapa);
+        };
+        this.entregadores.push(entregador);
+        this.pontosPercorridos[e.id] = [localizacao];
+        this.trechosPercorridos[e.id] = L.polyline([localizacao], { color: 'blue', weight: 5 }).addTo(this.mapa);
       });
-    
-      this.entregadoresVisiveis = [...this.entregadoresMock];
+      this.entregadoresVisiveis = [...this.entregadores];
     });
-    
-
   }
 
   private desenharRotaCompleta(entregador: any): void {
     const inicio = L.latLng(entregador.pontoInicio.latitude, entregador.pontoInicio.longitude);
     const fim = L.latLng(entregador.pontoFim.latitude, entregador.pontoFim.longitude);
     const paradas = entregador.pontosParada.map((p: any) => L.latLng(p.latitude, p.longitude));
-  
-    // Adiciona linha cinza da rota
     const rota = [inicio, ...paradas, fim];
-    L.polyline(rota, {
-      color: 'gray',
-      weight: 4,
-      dashArray: '5,10'
-    }).addTo(this.mapa);
-  
-    // Marcador de início
-    L.marker(inicio, { icon: this.iconeInicio })
+    L.polyline(rota, { color: 'gray', weight: 4, dashArray: '5,10' }).addTo(this.mapa);
+
+    L.marker(inicio, { icon: this.icones.inicio })
       .addTo(this.mapa)
       .bindPopup(`Início: ${entregador.nome}`);
-  
-    // Marcadores de parada
+
     paradas.forEach((parada: L.LatLngExpression, index: number) => {
-      L.marker(parada, { icon: this.iconeParada })
+      L.marker(parada, { icon: this.icones.parada })
         .addTo(this.mapa)
         .bindPopup(`Parada ${index + 1}: ${entregador.nome}`);
     });
-  
-    // Marcador de fim
-    L.marker(fim, { icon: this.iconeFim })
+
+    L.marker(fim, { icon: this.icones.fim })
       .addTo(this.mapa)
       .bindPopup(`Destino final: ${entregador.nome}`);
   }
-  
-  
-  
 }
