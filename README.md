@@ -126,6 +126,50 @@ POST /api/entregadores
 
 ---
 
+## 📁 Estrutura de Pastas
+
+### Backend (`/`)
+
+```
+├── src
+│   ├── controllers
+│   │   └── entregador.controller.js
+│   ├── database
+│   │   └── db.js
+│   ├── models
+│   │   └── entregador.model.js
+│   ├── routes
+│   │   └── entregador.routes.js
+│   ├── websocket
+│   │   └── socket.js
+│   └── app.js
+├── server.js
+├── package.json
+└── package-lock.json
+```
+
+### Frontend (`/src`)
+
+```
+├── app
+│   ├── core
+│   │   └── services
+│   │       ├── entregador.service.ts
+│   │       └── socket.service.ts
+│   └── features
+│       └── mapa
+│           ├── components
+│           │   ├── filtros-mapa
+│           │   │   ├── filtros-mapa.component.ts/html/css
+│           │   └── mapa-entregadores
+│           │       ├── mapa-entregadores.component.ts/html/css
+│           └── mapa.module.ts
+├── app-routing.module.ts
+├── app.component.ts/html/sass
+```
+
+---
+
 ## 🔄 Comunicação em Tempo Real
 
 - O backend emite eventos via WebSocket com o evento `localizacaoAtualizada`.
